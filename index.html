@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AIニュースダイジェスト</title>
+  <style>
+    :root { --bg:#0b1020; --card:#111831; --ink:#e6ecff; --muted:#9fb0ff; --accent:#6ea8fe; --chip:#1a2345; --ok:#3ddc97; }
+    body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif}
+    header{position:sticky;top:0;background:linear-gradient(180deg,#0b1020 80%,#0b1020cc 100%);backdrop-filter: blur(8px);z-index:10}
+    .wrap{max-width:980px;margin:0 auto;padding:20px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .grow{flex:1 1 320px}
+    input[type="text"]{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #243059;background:var(--card);color:var(--ink)}
+    .btn{border:1px solid #243059;background:var(--card);color:var(--ink);padding:10px 14px;border-radius:12px;cursor:pointer}
+    .btn:hover{border-color:#2f3c6f}
+    .toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:18px}
+    .card{background:var(--card);border:1px solid #22305f;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+    .title{font-weight:700;font-size:16px;line-height:1.4}
+    .meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+    .chip{background:var(--chip);padding:3px 8px;border-radius:999px;border:1px solid #2a3665}
+    .summary{color:#dbe5ff}
+    .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .tools .btn{font-size:13px}
+    .filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .filter-chip{border:1px solid #2a3665;background:#101935;color:#cfe0ff;border-radius:999px;padding:6px 10px;font-size:13px;cursor:pointer}
+    .filter-chip.active{outline:2px solid var(--accent)}
+    .pill{padding:4px 8px;border-radius:999px;background:#103a2b;color:#b9f5dd;border:1px solid #1f6b4f;font-size:12px}
+    .footer{color:var(--muted);font-size:12px;margin:24px 0}
+    .muted{color:var(--muted)}
+    .ok{color:var(--ok)}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="row">
+        <input id="q" class="grow" type="text" placeholder="検索（タイトル・要約・URLを全文検索）…" />
+        <label class="toggle">
+          <input id="dark" type="checkbox" /> ダークモード
+        </label>
+        <input id="file" type="file" accept="application/json" class="btn" />
+        <button id="reload" class="btn">サーバから再読込</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div id="sourceFilters" class="filters"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="row">
+      <div class="pill">最新: <span id="generatedAt">—</span></div>
+      <div class="pill"><span id="count">0</span> 件</div>
+    </div>
+    <div id="grid" class="grid" aria-live="polite"></div>
+    <div class="footer muted">ヒント：⌘/Ctrl+F でも検索できます。既読はローカルに保存されます。</div>
+  </main>
+
+  <script>
+    // ====== 小ユーティリティ ======
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+    const fmtDate = s => s ? s : "";
+    const domain = url => { try { return (new URL(url)).hostname.replace(/^www\./,''); } catch(e){ return 'unknown'; } };
+    const storeKey = "ai_digest_read";
+    const readSet = new Set(JSON.parse(localStorage.getItem(storeKey) || "[]"));
+    const saveReads = () => localStorage.setItem(storeKey, JSON.stringify(Array.from(readSet)));
+    const body = document.body;
+
+    // ====== 状態 ======
+    let raw = { generated_at: "", items: [] };
+    let view = []; // フィルタ後
+    let activeSources = new Set(); // 空＝全件
+
+    // ====== データ読み込み ======
+    async function loadFromServer() {
+      try {
+        const res = await fetch("./ai_digest_latest.json", { cache: "no-store" });
+        if(!res.ok) throw new Error(res.status);
+        const j = await res.json();
+        setData(j);
+      } catch(e) {
+        alert("サーバから読み込めませんでした。右上の「ファイルを選択」でJSONを読み込んでください。");
+      }
+    }
+    function setData(j) {
+      raw = j;
+      $("#generatedAt").textContent = j.generated_at || "—";
+      // ソース（ドメイン）を付与
+      raw.items = (raw.items || []).map(it => ({ ...it, source: domain(it.url || "") }));
+      buildSourceChips();
+      render();
+    }
+
+    // ファイル選択
+    $("#file").addEventListener("change", ev => {
+      const file = ev.target.files?.[0];
+      if(!file) return;
+      file.text().then(t => setData(JSON.parse(t)));
+    });
+    $("#reload").addEventListener("click", loadFromServer);
+
+    // ====== フィルタUI ======
+    function buildSourceChips() {
+      const box = $("#sourceFilters");
+      box.innerHTML = "";
+      const list = Array.from(new Set(raw.items.map(it => it.source))).sort();
+      for (const s of list) {
+        const chip = document.createElement("button");
+        chip.className = "filter-chip";
+        chip.textContent = s;
+        chip.dataset.source = s;
+        chip.addEventListener("click", () => {
+          if (activeSources.has(s)) activeSources.delete(s); else activeSources.add(s);
+          chip.classList.toggle("active");
+          render();
+        });
+        box.appendChild(chip);
+      }
+    }
+
+    // ====== 検索＆描画 ======
+    function render() {
+      const q = $("#q").value.trim().toLowerCase();
+      view = raw.items.filter(it => {
+        if (activeSources.size && !activeSources.has(it.source)) return false;
+        if (!q) return true;
+        const hay = `${it.title} ${it.summary} ${it.url}`.toLowerCase();
+        return hay.includes(q);
+      });
+      $("#count").textContent = view.length;
+      const grid = $("#grid");
+      grid.innerHTML = "";
+      for (const it of view) {
+        const card = document.createElement("article");
+        card.className = "card";
+        if (readSet.has(it.url)) card.style.opacity = 0.6;
+
+        const t = document.createElement("div");
+        t.className = "title";
+        t.textContent = it.title || "(無題)";
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.innerHTML = `
+          <span class="chip">${it.source}</span>
+          <span>${fmtDate(it.published || "")}</span>
+        `;
+
+        const sum = document.createElement("div");
+        sum.className = "summary";
+        sum.textContent = it.summary || "";
+
+        const tools = document.createElement("div");
+        tools.className = "tools";
+
+        const open = btn("原文を開く", () => { window.open(it.url, "_blank"); markRead(it, card); });
+        const copySum = btn("要約をコピー", () => copyText(`${it.title}\n${it.url}\n\n${it.summary}`));
+        const mark = btn(readSet.has(it.url) ? "未読に戻す" : "既読にする", () => { toggleRead(it, card, mark); });
+        tools.append(open, copySum, mark);
+
+        card.append(t, meta, sum, tools);
+        grid.appendChild(card);
+      }
+    }
+    function btn(label, onClick){
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = label;
+      b.addEventListener("click", onClick);
+      return b;
+    }
+    function copyText(text){
+      navigator.clipboard.writeText(text);
+    }
+    function toggleRead(it, card, button){
+      if (readSet.has(it.url)) { readSet.delete(it.url); button.textContent = "既読にする"; card.style.opacity = 1; }
+      else { readSet.add(it.url); button.textContent = "未読に戻す"; card.style.opacity = 0.6; }
+      saveReads();
+    }
+    function markRead(it, card){
+      if (!readSet.has(it.url)) { readSet.add(it.url); saveReads(); card.style.opacity = 0.6; }
+    }
+
+    // 検索入力
+    $("#q").addEventListener("input", render);
+
+    // ダークモード（お好みで）
+    $("#dark").addEventListener("change", e => {
+      document.documentElement.classList.toggle("light", !e.target.checked);
+    });
+
+    // 初期ロード試行（失敗してもOK）
+    loadFromServer();
+  </script>
+</body>
+</html>
