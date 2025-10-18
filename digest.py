@@ -1,8 +1,6 @@
-# digest.py  --- GitHub Actions 用の最小版
+# digest.py  --- GitHub Actions 用（pytz使用版：YAMLで依存を入れる前提）
 import feedparser, datetime as dt, pytz, re, textwrap, hashlib, json
 from pathlib import Path
-
-# できるだけ軽くするため、本文抽出は使わず RSS 概要を要約します
 from transformers import pipeline
 
 JST = pytz.timezone("Asia/Tokyo")
@@ -51,6 +49,7 @@ def within_24h(jst_dt):
     return (dt.datetime.now(JST) - jst_dt).total_seconds() <= 24*3600
 
 def main():
+    # 軽量モデル（初回DLあり）
     summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
     def summarize(text):
         text = (text or "")[:4000]
@@ -79,6 +78,7 @@ def main():
     now = dt.datetime.now(JST).strftime("%Y-%m-%d %H:%M")
     json_out = {"generated_at": f"{now} JST", "items": digest_items}
 
+    # リポジトリ直下に書き出し（Pagesがそのまま読む）
     Path("ai_digest_latest.json").write_text(json.dumps(json_out, ensure_ascii=False, indent=2), encoding="utf-8")
     print("✅ updated ai_digest_latest.json with", len(digest_items), "items")
 
