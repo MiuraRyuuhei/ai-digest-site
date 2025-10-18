@@ -1,0 +1,88 @@
+# digest.py  --- GitHub Actions 用の最小版
+import feedparser, datetime as dt, pytz, re, textwrap, hashlib, json
+from pathlib import Path
+
+# できるだけ軽くするため、本文抽出は使わず RSS 概要を要約します
+from transformers import pipeline
+
+JST = pytz.timezone("Asia/Tokyo")
+
+FEEDS = [
+    "https://deepmind.google/discover/blog/rss.xml",
+    "https://blog.google/technology/ai/rss/",
+    "https://feeds.arxiv.org/rss/cs.AI",
+    "https://feeds.arxiv.org/rss/cs.LG",
+    "https://huggingface.co/blog/feed.xml",
+    "https://www.nvidia.com/en-us/about-nvidia/rss/feed.xml",
+]
+
+def clean(t: str) -> str:
+    return re.sub(r"\s+", " ", (t or "")).strip()
+
+def fetch_entries(feeds):
+    entries = []
+    for url in feeds:
+        d = feedparser.parse(url)
+        for e in d.entries:
+            # 公開日時
+            if getattr(e, "published_parsed", None):
+                pub = dt.datetime(*e.published_parsed[:6], tzinfo=dt.timezone.utc).astimezone(JST)
+            elif getattr(e, "updated_parsed", None):
+                pub = dt.datetime(*e.updated_parsed[:6], tzinfo=dt.timezone.utc).astimezone(JST)
+            else:
+                pub = None
+            entries.append({
+                "title": clean(e.get("title", "")),
+                "link": e.get("link", "").strip(),
+                "published": pub,
+                "rss_summary": clean(e.get("summary", "")),
+            })
+    # 重複除去（リンク優先）＋新しい順
+    seen, uniq = set(), []
+    for it in sorted(entries, key=lambda x: x["published"] or dt.datetime(1970,1,1,tzinfo=JST), reverse=True):
+        key = it["link"] or hashlib.md5((it["title"] or "").encode()).hexdigest()
+        if key in seen: continue
+        seen.add(key)
+        uniq.append(it)
+    return uniq
+
+def within_24h(jst_dt):
+    if not jst_dt: return False
+    return (dt.datetime.now(JST) - jst_dt).total_seconds() <= 24*3600
+
+def main():
+    # 軽量モデル（初回DLあり）
+    summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
+    def summarize(text):
+        text = (text or "")[:4000]
+        if not text: return ""
+        try:
+            out = summarizer(text, max_length=110, min_length=70, do_sample=False)[0]["summary_text"]
+            return clean(out)
+        except Exception:
+            return textwrap.shorten(text, width=220, placeholder="…")
+
+    raw = fetch_entries(FEEDS)
+    today = [e for e in raw if within_24h(e["published"])]
+    top10 = today[:10] if len(today) >= 10 else raw[:10]
+
+    digest_items = []
+    for e in top10:
+        base = e["rss_summary"] or e["title"]
+        summ = summarize(base)
+        digest_items.append({
+            "title": e["title"],
+            "url": e["link"],
+            "published": e["published"].strftime("%Y-%m-%d %H:%M") if e["published"] else "",
+            "summary": summ
+        })
+
+    now = dt.datetime.now(JST).strftime("%Y-%m-%d %H:%M")
+    json_out = {"generated_at": f"{now} JST", "items": digest_items}
+
+    # ルート直下に書き出し（GitHub Pages がそのまま読む）
+    Path("ai_digest_latest.json").write_text(json.dumps(json_out, ensure_ascii=False, indent=2), encoding="utf-8")
+    print("✅ updated ai_digest_latest.json with", len(digest_items), "items")
+
+if __name__ == "__main__":
+    main()
