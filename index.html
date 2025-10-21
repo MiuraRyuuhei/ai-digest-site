@@ -32,31 +32,20 @@
     .ok{color:var(--ok)}
   </style>
 </head>
+<!-- ✨ Dify チャットボット（右下固定）ここから -->
 <script>
- window.difyChatbotConfig = {
-  token: 'G4x8fpppi7CUJMgV',
-  inputs: {
-    // You can define the inputs from the Start node here
-    // key is the variable name
-    // e.g.
-    // name: "NAME"
-  },
-  systemVariables: {
-    // user_id: 'YOU CAN DEFINE USER ID HERE',
-    // conversation_id: 'YOU CAN DEFINE CONVERSATION ID HERE, IT MUST BE A VALID UUID',
-  },
-  userVariables: {
-    // avatar_url: 'YOU CAN DEFINE USER AVATAR URL HERE',
-    // name: 'YOU CAN DEFINE USER NAME HERE',
-  },
- }
+  window.difyChatbotConfig = {
+    token: 'G4x8fpppi7CUJMgV',
+  }
 </script>
 <script
- src="https://udify.app/embed.min.js"
- id="G4x8fpppi7CUJMgV"
- defer>
+  src="https://udify.app/embed.min.js"
+  id="G4x8fpppi7CUJMgV"
+  defer>
 </script>
+
 <style>
+  /* ボタンとウィンドウの見た目 */
   #dify-chatbot-bubble-button {
     background-color: #1C64F2 !important;
   }
@@ -64,7 +53,26 @@
     width: 24rem !important;
     height: 40rem !important;
   }
+
+  /* ★ 右下に固定 */
+  #dify-chatbot-bubble-button {
+    position: fixed !important;
+    right: 24px !important;
+    bottom: 24px !important;
+    z-index: 2147483647 !important;
+  }
+  #dify-chatbot-bubble-window {
+    position: fixed !important;
+    right: 24px !important;
+    bottom: 92px !important;
+    z-index: 2147483647 !important;
+  }
 </style>
+<!-- ✨ Dify チャットボットここまで -->
+
+</body>
+</html>
+
 <body>
   <header>
     <div class="wrap">
@@ -230,5 +238,6 @@
   </script>
 </body>
 </html>
+
 
 
