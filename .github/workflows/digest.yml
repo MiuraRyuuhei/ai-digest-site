@@ -2,11 +2,11 @@ name: ai-digest
 
 on:
   schedule:
-    - cron: '0 1 * * *'   # JST 10:00 に毎日実行（UTCでは1:00）
-  workflow_dispatch:       # 手動実行ボタンもつける
+    - cron: '0 1 * * *'   # 毎日 10:00 JST（UTC+9）
+  workflow_dispatch:       # 手動実行ボタン
 
 permissions:
-  contents: write          # JSONをコミット・プッシュするための権限
+  contents: write          # コミット・プッシュ権限
 
 jobs:
   run:
@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install feedparser transformers sentencepiece
+          pip install feedparser transformers sentencepiece pytz "torch>=2.2,<3"
 
       - name: Run digest script
         run: python digest.py
