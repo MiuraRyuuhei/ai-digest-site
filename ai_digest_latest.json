@@ -1,6 +1,24 @@
 {
-  "generated_at": "2025-10-21 11:07 JST",
+  "generated_at": "2025-10-22 11:28 JST",
   "items": [
+    {
+      "title": "Start learning all things AI on the new Google Skills",
+      "url": "https://blog.google/outreach-initiatives/education/google-skills/",
+      "published": "2025-10-21 22:00",
+      "summary": "Say hello to Google Skills . Google's new skills program lets you learn how to use Google skills to improve your knowledge of Google's skills . The program is based on Google's knowledge of the company's skills skills and knowledge of computer skills . For more information on Google Skills, visit www.g.com/learnstrengthen/learnlearn ."
+    },
+    {
+      "title": "Supercharge your OCR Pipelines with Open Models",
+      "url": "https://huggingface.co/blog/ocr-open-models",
+      "published": "2025-10-21 09:00",
+      "summary": "Supercharge your OCR Pipelines with Open Models . Open Models is a free tool that lets you build OCR pipelines . Open models can be used to build and build software to create OCR software . The Open Models are a free source of software that allows you to build your own OCR pipeline and build your software with open models ."
+    },
+    {
+      "title": "Unlock the power of images with AI Sheets",
+      "url": "https://huggingface.co/blog/aisheets-unlock-images",
+      "published": "2025-10-21 09:00",
+      "summary": "Unlock the power of images with AI Sheets . Unlocking power of the world's largest collection of AI-generated images . Unlock power of image editing with AI-powered software . See more from iReport.com: Share your photos with us at iReport@mailonline.co.uk . Back to the page you came from ."
+    },
     {
       "title": "Leveling up your developer experience in Google AI Studio",
       "url": "https://blog.google/technology/developers/ai-studio-updates-more-control/",
@@ -42,24 +60,6 @@
       "url": "https://blog.google/technology/ai/google-gemma-ai-cancer-therapy-discovery/",
       "published": "2025-10-15 21:00",
       "summary": "A dark blue and black abstract slide featuring a large, blurred cell-like structure is in the center . The text \"Cell2Sentence Scale 27B\" is in white . The word \"Gemma\" is visible in the bottom right corner of the slide . The image was taken from a photo taken of a cell in the middle of the screen ."
-    },
-    {
-      "title": "Get your VLM running in 3 simple steps on Intel CPUs",
-      "url": "https://huggingface.co/blog/openvino-vlm",
-      "published": "2025-10-15 09:00",
-      "summary": "Get your VLM running in 3 simple steps on Intel CPUs on Intel's latest Intel chips . Get an Intel chip that can run VLM on your Intel laptop using Intel's newest Intel Core chips . Use Intel's new Intel chips to run the VLM software that can be used in Intel's next-generation Intel quad quad quad core microchip ."
-    },
-    {
-      "title": "10 ways you can ask Google Photos to edit your photos for you",
-      "url": "https://blog.google/products/photos/how-to-tips-editing-prompts/",
-      "published": "2025-10-15 02:00",
-      "summary": "Image for the photo gallery app Google Photos shows three examples of how users can edit their photos by just asking . On the left, a chihuahua in a pink harness is edited to wear a cute pumpkin costume . In the center, a reflection on a window covering is edited into a reflection of a window . The image was created by Google Photos' app ."
-    },
-    {
-      "title": "New AI-powered features help you connect with web content in Search and Discover.",
-      "url": "https://blog.google/products/search/ai-features-web-content/",
-      "published": "2025-10-14 03:00",
-      "summary": "We’re introducing two new AI-powered features in Search and Discover to help you connect with fresh content and links from across the web . We also introduce a new feature that lets users search for content in search and discover more easily and share it with others . We're introducing two features that will help you find new content and share links across the world ."
     }
   ]
 }
