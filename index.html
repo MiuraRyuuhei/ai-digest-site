@@ -4,240 +4,196 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>AIニュースダイジェスト</title>
+
+  <!-- ====== 基本スタイル ====== -->
   <style>
-    :root { --bg:#0b1020; --card:#111831; --ink:#e6ecff; --muted:#9fb0ff; --accent:#6ea8fe; --chip:#1a2345; --ok:#3ddc97; }
-    body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif}
+    :root {
+      --bg:#0b1020; --card:#111831; --ink:#e6ecff; --muted:#9fb0ff;
+      --accent:#6ea8fe; --chip:#1a2345; --ok:#3ddc97; --border:#22305f;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);
+      font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif}
     header{position:sticky;top:0;background:linear-gradient(180deg,#0b1020 80%,#0b1020cc 100%);backdrop-filter: blur(8px);z-index:10}
     .wrap{max-width:980px;margin:0 auto;padding:20px}
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    .grow{flex:1 1 320px}
-    input[type="text"]{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #243059;background:var(--card);color:var(--ink)}
+    .grow{flex:1 1 420px}
+    input[type="search"]{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #243059;background:var(--card);color:var(--ink)}
     .btn{border:1px solid #243059;background:var(--card);color:var(--ink);padding:10px 14px;border-radius:12px;cursor:pointer}
     .btn:hover{border-color:#2f3c6f}
-    .toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:18px}
-    .card{background:var(--card);border:1px solid #22305f;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+    .muted{color:var(--muted)}
+    .pill{padding:4px 8px;border-radius:999px;background:#103a2b;color:#b9f5dd;border:1px solid #1f6b4f;font-size:12px}
+
+    /* 2カラム */
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media (max-width:860px){ .cols{grid-template-columns:1fr} }
+
+    /* カード */
+    .cards{display:grid;gap:12px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
     .title{font-weight:700;font-size:16px;line-height:1.4}
     .meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
     .chip{background:var(--chip);padding:3px 8px;border-radius:999px;border:1px solid #2a3665}
     .summary{color:#dbe5ff}
-    .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    .tools .btn{font-size:13px}
-    .filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    .filter-chip{border:1px solid #2a3665;background:#101935;color:#cfe0ff;border-radius:999px;padding:6px 10px;font-size:13px;cursor:pointer}
-    .filter-chip.active{outline:2px solid var(--accent)}
-    .pill{padding:4px 8px;border-radius:999px;background:#103a2b;color:#b9f5dd;border:1px solid #1f6b4f;font-size:12px}
-    .footer{color:var(--muted);font-size:12px;margin:24px 0}
-    .muted{color:var(--muted)}
-    .ok{color:var(--ok)}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
   </style>
 </head>
-<!-- ✨ Dify チャットボット（右下固定）ここから -->
-<script>
-  window.difyChatbotConfig = {
-    token: 'G4x8fpppi7CUJMgV',
-  }
-</script>
-<script
-  src="https://udify.app/embed.min.js"
-  id="G4x8fpppi7CUJMgV"
-  defer>
-</script>
-
-<style>
-  /* ボタンとウィンドウの見た目 */
-  #dify-chatbot-bubble-button {
-    background-color: #1C64F2 !important;
-  }
-  #dify-chatbot-bubble-window {
-    width: 24rem !important;
-    height: 40rem !important;
-  }
-
-  /* ★ 右下に固定 */
-  #dify-chatbot-bubble-button {
-    position: fixed !important;
-    right: 24px !important;
-    bottom: 24px !important;
-    z-index: 2147483647 !important;
-  }
-  #dify-chatbot-bubble-window {
-    position: fixed !important;
-    right: 24px !important;
-    bottom: 92px !important;
-    z-index: 2147483647 !important;
-  }
-</style>
-<!-- ✨ Dify チャットボットここまで -->
-
-</body>
-</html>
 
 <body>
+  <!-- ====== ヘッダー（① 旧UIは削除 / ② 検索ボックスに置換） ====== -->
   <header>
     <div class="wrap">
       <div class="row">
-        <input id="q" class="grow" type="text" placeholder="検索（タイトル・要約・URLを全文検索）…" />
-        <label class="toggle">
-          <input id="dark" type="checkbox" /> ダークモード
-        </label>
-        <input id="file" type="file" accept="application/json" class="btn" />
-        <button id="reload" class="btn">サーバから再読込</button>
+        <h1 style="margin:0;font-size:20px;">AIニュースピックアップ</h1>
+        <span id="lastUpdated" class="muted" style="margin-left:auto;"></span>
       </div>
       <div class="row" style="margin-top:10px">
-        <div id="sourceFilters" class="filters"></div>
+        <input id="searchInput" class="grow" type="search"
+               placeholder="キーワード または  site:huggingface.co  のように検索…" />
+        <button id="searchBtn" class="btn">検索</button>
       </div>
     </div>
   </header>
 
+  <!-- ====== 本文：③ 左=検索結果 / ⑤ 右=レコメンド ====== -->
   <main class="wrap">
-    <div class="row">
-      <div class="pill">最新: <span id="generatedAt">—</span></div>
-      <div class="pill"><span id="count">0</span> 件</div>
+    <div class="cols" style="margin-top:12px;">
+      <section>
+        <h2 style="font-size:16px;margin:0 0 8px;">検索結果 <span id="searchCount" class="muted"></span></h2>
+        <div id="searchResults" class="cards" aria-live="polite"></div>
+      </section>
+      <section>
+        <h2 style="font-size:16px;margin:0 0 8px;">あなたへのおすすめ</h2>
+        <div id="recoResults" class="cards" aria-live="polite"></div>
+      </section>
     </div>
-    <div id="grid" class="grid" aria-live="polite"></div>
-    <div class="footer muted">ヒント：⌘/Ctrl+F でも検索できます。既読はローカルに保存されます。</div>
   </main>
 
+  <!-- ====== スクリプト：自動読込 / 検索(③) / レコメンド(④⑤) ====== -->
   <script>
-    // ====== 小ユーティリティ ======
-    const $ = (sel, el=document) => el.querySelector(sel);
-    const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
-    const fmtDate = s => s ? s : "";
-    const domain = url => { try { return (new URL(url)).hostname.replace(/^www\./,''); } catch(e){ return 'unknown'; } };
-    const storeKey = "ai_digest_read";
-    const readSet = new Set(JSON.parse(localStorage.getItem(storeKey) || "[]"));
-    const saveReads = () => localStorage.setItem(storeKey, JSON.stringify(Array.from(readSet)));
-    const body = document.body;
+    let ITEMS = [];
+    let LAST_QUERY = "";
 
-    // ====== 状態 ======
-    let raw = { generated_at: "", items: [] };
-    let view = []; // フィルタ後
-    let activeSources = new Set(); // 空＝全件
+    // --- utils ---
+    const $ = s => document.querySelector(s);
+    const host = url => { try { return new URL(url).host.replace(/^www\./,''); } catch { return ""; } };
+    const stopwords = new Set("a,an,the,of,to,in,on,for,with,and,or,is,are,was,were,be,as,at,by,from,this,that,these,those,about,into,over,under,than,then,it,its,our,your,his,her,their,not".split(","));
+    const esc = s => (s||"").replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]) );
 
-    // ====== データ読み込み ======
-    async function loadFromServer() {
-      try {
-        const res = await fetch("./ai_digest_latest.json", { cache: "no-store" });
-        if(!res.ok) throw new Error(res.status);
-        const j = await res.json();
-        setData(j);
-      } catch(e) {
-        alert("サーバから読み込めませんでした。右上の「ファイルを選択」でJSONを読み込んでください。");
+    // ① 自動で最新JSONを読む
+    async function loadLatest() {
+      const res = await fetch('./ai_digest_latest.json', { cache: 'no-store' });
+      const json = await res.json();
+      ITEMS = (json.items || []).map((it, i) => ({...it, _id:i, _host:host(it.url)}));
+      $('#lastUpdated').textContent = `最新: ${json.generated_at} / ${ITEMS.length}件`;
+      // 初期表示：おすすめだけ先に出す
+      renderRecommendations();
+    }
+
+    // ② 検索（site: ドメインフィルタ対応）
+    function tokenize(s){
+      return (s||"").toLowerCase().replace(/https?:\/\/\S+/g," ")
+        .replace(/[^a-z0-9ぁ-んァ-ン一-龥ー\- ]/g," ")
+        .split(/\s+/).filter(w=>w && !stopwords.has(w));
+    }
+    function parseQuery(q){
+      const m = q.match(/(?:^|\s)site:([^\s]+)/);
+      const site = m ? m[1].replace(/^https?:\/\//,'').replace(/^www\./,'') : "";
+      const cleaned = q.replace(/(?:^|\s)site:[^\s]+/,' ').trim();
+      return { site, tokens: tokenize(cleaned) };
+    }
+    function scoreItem(it, tokens, site){
+      let score = 0;
+      const title = tokenize(it.title);
+      const summary = tokenize(it.summary);
+      for(const t of tokens){
+        score += title.filter(w=>w===t).length * 3;
+        score += summary.filter(w=>w===t).length * 1;
       }
-    }
-    function setData(j) {
-      raw = j;
-      $("#generatedAt").textContent = j.generated_at || "—";
-      // ソース（ドメイン）を付与
-      raw.items = (raw.items || []).map(it => ({ ...it, source: domain(it.url || "") }));
-      buildSourceChips();
-      render();
+      if(site && it._host.includes(site)) score += 5;
+      return score;
     }
 
-    // ファイル選択
-    $("#file").addEventListener("change", ev => {
-      const file = ev.target.files?.[0];
-      if(!file) return;
-      file.text().then(t => setData(JSON.parse(t)));
-    });
-    $("#reload").addEventListener("click", loadFromServer);
+    function runSearch(q){
+      LAST_QUERY = q.trim();
+      const { site, tokens } = parseQuery(LAST_QUERY);
+      let scored = ITEMS.map(it => ({ it, s: scoreItem(it, tokens, site) }));
+      if(site) scored = scored.filter(x => x.it._host.includes(site));
+      scored = scored.filter(x => x.s > 0).sort((a,b)=>b.s-a.s).map(x=>x.it).slice(0,3); // ③ 左に最大3件
+      $('#searchCount').textContent = scored.length ? `${scored.length}件` : '0件';
+      renderList(scored, $('#searchResults'));
+      renderRecommendations(scored); // 検索に応じて右も更新
+    }
 
-    // ====== フィルタUI ======
-    function buildSourceChips() {
-      const box = $("#sourceFilters");
-      box.innerHTML = "";
-      const list = Array.from(new Set(raw.items.map(it => it.source))).sort();
-      for (const s of list) {
-        const chip = document.createElement("button");
-        chip.className = "filter-chip";
-        chip.textContent = s;
-        chip.dataset.source = s;
-        chip.addEventListener("click", () => {
-          if (activeSources.has(s)) activeSources.delete(s); else activeSources.add(s);
-          chip.classList.toggle("active");
-          render();
+    // ④ レコメンド：検索クエリ類似 or 新着＋ドメイン多様性
+    function uniqByHost(list){
+      const seen = new Set(); const out=[];
+      for(const it of list){ if(!seen.has(it._host)){ seen.add(it._host); out.push(it); } }
+      return out;
+    }
+    function recommendByQuery(excludeIds=[]){
+      if(!LAST_QUERY) return [];
+      const { site, tokens } = parseQuery(LAST_QUERY);
+      let scored = ITEMS.filter(it => !excludeIds.includes(it._id))
+                        .map(it => ({ it, s: scoreItem(it, tokens, site) }));
+      scored = scored.filter(x=>x.s>0).sort((a,b)=>b.s-a.s).map(x=>x.it);
+      return uniqByHost(scored).slice(0,3);
+    }
+    function recommendDefault(excludeIds=[]){
+      const pool = ITEMS.filter(it => !excludeIds.includes(it._id));
+      const sorted = pool.slice().sort((a,b)=> String(b.published||"") > String(a.published||"") ? 1 : -1);
+      return uniqByHost(sorted).slice(0,3);
+    }
+    function renderRecommendations(searchPicked=[]){
+      const exclude = searchPicked.map(it=>it._id);
+      let recs = recommendByQuery(exclude);
+      if(recs.length===0) recs = recommendDefault(exclude);
+      renderList(recs, $('#recoResults'));
+    }
+
+    // 共通カード描画
+    function cardHTML(it){
+      return `
+        <article class="card">
+          <div class="meta">
+            <span class="chip">${esc(it._host || "source")}</span>
+            <span>${esc(it.published || "")}</span>
+          </div>
+          <div class="title">${esc(it.title || "(無題)")}</div>
+          <div class="summary">${esc((it.summary || "").slice(0, 240))}</div>
+          <div class="actions">
+            <a class="btn" href="${it.url}" target="_blank" rel="noopener">原文を開く</a>
+            <button class="btn" data-copy="${esc((it.summary||"").replace(/"/g,'&quot;'))}">要約をコピー</button>
+          </div>
+        </article>`;
+    }
+    function renderList(items, root){
+      root.innerHTML = items.map(cardHTML).join("") || `<div class="muted">該当なし</div>`;
+      root.querySelectorAll('button[data-copy]').forEach(btn=>{
+        btn.addEventListener('click', e=>{
+          navigator.clipboard.writeText(e.currentTarget.dataset.copy||"");
+          btn.textContent = "コピーしました ✓";
+          setTimeout(()=> btn.textContent = "要約をコピー", 1200);
         });
-        box.appendChild(chip);
-      }
-    }
-
-    // ====== 検索＆描画 ======
-    function render() {
-      const q = $("#q").value.trim().toLowerCase();
-      view = raw.items.filter(it => {
-        if (activeSources.size && !activeSources.has(it.source)) return false;
-        if (!q) return true;
-        const hay = `${it.title} ${it.summary} ${it.url}`.toLowerCase();
-        return hay.includes(q);
       });
-      $("#count").textContent = view.length;
-      const grid = $("#grid");
-      grid.innerHTML = "";
-      for (const it of view) {
-        const card = document.createElement("article");
-        card.className = "card";
-        if (readSet.has(it.url)) card.style.opacity = 0.6;
-
-        const t = document.createElement("div");
-        t.className = "title";
-        t.textContent = it.title || "(無題)";
-
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        meta.innerHTML = `
-          <span class="chip">${it.source}</span>
-          <span>${fmtDate(it.published || "")}</span>
-        `;
-
-        const sum = document.createElement("div");
-        sum.className = "summary";
-        sum.textContent = it.summary || "";
-
-        const tools = document.createElement("div");
-        tools.className = "tools";
-
-        const open = btn("原文を開く", () => { window.open(it.url, "_blank"); markRead(it, card); });
-        const copySum = btn("要約をコピー", () => copyText(`${it.title}\n${it.url}\n\n${it.summary}`));
-        const mark = btn(readSet.has(it.url) ? "未読に戻す" : "既読にする", () => { toggleRead(it, card, mark); });
-        tools.append(open, copySum, mark);
-
-        card.append(t, meta, sum, tools);
-        grid.appendChild(card);
-      }
-    }
-    function btn(label, onClick){
-      const b = document.createElement("button");
-      b.className = "btn";
-      b.textContent = label;
-      b.addEventListener("click", onClick);
-      return b;
-    }
-    function copyText(text){
-      navigator.clipboard.writeText(text);
-    }
-    function toggleRead(it, card, button){
-      if (readSet.has(it.url)) { readSet.delete(it.url); button.textContent = "既読にする"; card.style.opacity = 1; }
-      else { readSet.add(it.url); button.textContent = "未読に戻す"; card.style.opacity = 0.6; }
-      saveReads();
-    }
-    function markRead(it, card){
-      if (!readSet.has(it.url)) { readSet.add(it.url); saveReads(); card.style.opacity = 0.6; }
     }
 
-    // 検索入力
-    $("#q").addEventListener("input", render);
+    // イベント
+    $('#searchBtn').addEventListener('click', ()=> runSearch($('#searchInput').value));
+    $('#searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(e.target.value); });
 
-    // ダークモード（お好みで）
-    $("#dark").addEventListener("change", e => {
-      document.documentElement.classList.toggle("light", !e.target.checked);
-    });
-
-    // 初期ロード試行（失敗してもOK）
-    loadFromServer();
+    // 起動
+    loadLatest();
   </script>
+
+  <!-- ====== Dify チャットボット（右下固定のバブル） ====== -->
+  <script>
+    window.difyChatbotConfig = { token: 'G4x8fpppi7CUJMgV' };
+  </script>
+  <script src="https://udify.app/embed.min.js" id="G4x8fpppi7CUJMgV" defer></script>
+  <style>
+    #dify-chatbot-bubble-button { background-color:#1C64F2 !important; position:fixed !important; right:24px !important; bottom:24px !important; z-index:2147483647 !important; }
+    #dify-chatbot-bubble-window { width:24rem !important; height:40rem !important; position:fixed !important; right:24px !important; bottom:92px !important; z-index:2147483647 !important; }
+  </style>
 </body>
 </html>
-
-
-
