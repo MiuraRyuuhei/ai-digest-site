@@ -1,132 +1,217 @@
-<script>
-  let ITEMS = [];          // JSONの全件（=10件想定）
-  let LAST_QUERY = "";     // 最後に使った検索クエリ
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AIニュースダイジェスト</title>
+  <style>
+    :root { --bg:#0b1020; --card:#111831; --ink:#e6ecff; --muted:#9fb0ff; --accent:#6ea8fe; --chip:#1a2345; --ok:#3ddc97; --border:#22305f; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif}
+    header{position:sticky;top:0;background:linear-gradient(180deg,#0b1020 80%,#0b1020cc 100%);backdrop-filter: blur(8px);z-index:10}
+    .wrap{max-width:980px;margin:0 auto;padding:20px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .grow{flex:1 1 420px}
+    input[type="search"]{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #243059;background:var(--card);color:var(--ink)}
+    .btn{border:1px solid #243059;background:var(--card);color:var(--ink);padding:10px 14px;border-radius:12px;cursor:pointer}
+    .btn:hover{border-color:#2f3c6f}
+    .muted{color:var(--muted)}
+    .pill{padding:4px 8px;border-radius:999px;background:#103a2b;color:#b9f5dd;border:1px solid #1f6b4f;font-size:12px}
 
-  // ---- utils ----
-  const $ = s => document.querySelector(s);
-  const host = url => { try { return new URL(url).host.replace(/^www\./,''); } catch { return ""; } };
-  const esc  = s => (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  const stopwords = new Set("a,an,the,of,to,in,on,for,with,and,or,is,are,was,were,be,as,at,by,from,this,that,these,those,about,into,over,under,than,then,it,its,our,your,his,her,their,not".split(","));
+    /* 2カラム */
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media (max-width:860px){ .cols{grid-template-columns:1fr} }
 
-  // ① 自動で最新JSONを読み込み、左に10件を初期表示
-  async function loadLatest() {
-    const res = await fetch('./ai_digest_latest.json', { cache: 'no-store' });
-    const json = await res.json();
-    ITEMS = (json.items || []).map((it, i) => ({ ...it, _id: i, _host: host(it.url) }));
-    $('#lastUpdated').textContent = `最新: ${json.generated_at} / ${ITEMS.length}件`;
+    /* カード */
+    .cards{display:grid;gap:12px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+    .title{font-weight:700;font-size:16px;line-height:1.4}
+    .meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+    .chip{background:var(--chip);padding:3px 8px;border-radius:999px;border:1px solid #2a3665}
+    .summary{color:#dbe5ff}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 
-    // 初期：左=10件すべて、右=レコメンド
-    renderList(ITEMS.slice(0, 10), $('#searchResults'));
-    $('#searchCount').textContent = `${Math.min(10, ITEMS.length)}件`;
-    renderRecommendations();
-  }
+    .error{color:#ff9b9b;background:#351a1a;border:1px solid #642323;padding:8px 12px;border-radius:10px}
+  </style>
+</head>
 
-  // ② 検索（site: ドメインフィルタ対応）— 10件の集合から「該当のみ」に絞る
-  function tokenize(s){
-    return (s||"").toLowerCase().replace(/https?:\/\/\S+/g," ")
-      .replace(/[^a-z0-9ぁ-んァ-ン一-龥ー\- ]/g," ")
-      .split(/\s+/).filter(w=>w && !stopwords.has(w));
-  }
-  function parseQuery(q){
-    const m = q.match(/(?:^|\s)site:([^\s]+)/);
-    const site = m ? m[1].replace(/^https?:\/\//,'').replace(/^www\./,'') : "";
-    const cleaned = q.replace(/(?:^|\s)site:[^\s]+/,' ').trim();
-    return { site, tokens: tokenize(cleaned) };
-  }
-  function scoreItem(it, tokens, site){
-    if(!tokens.length && !site) return 1; // 空検索は全件表示
-    let score = 0;
-    const title = tokenize(it.title), summary = tokenize(it.summary);
-    for(const t of tokens){
-      score += title.filter(w=>w===t).length * 3;
-      score += summary.filter(w=>w===t).length * 1;
+<body>
+  <!-- ヘッダー：検索ボックスのみ -->
+  <header>
+    <div class="wrap">
+      <div class="row">
+        <h1 style="margin:0;font-size:20px;">AIニュースピックアップ</h1>
+        <span id="lastUpdated" class="muted" style="margin-left:auto;"></span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input id="searchInput" class="grow" type="search" placeholder="キーワード または  site:huggingface.co  のように検索…" />
+        <button id="searchBtn" class="btn">検索</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 本文：左=ニュース（初期10件→検索で絞り込み）／右=レコメンド常時 -->
+  <main class="wrap">
+    <div class="cols" style="margin-top:12px;">
+      <section>
+        <h2 style="font-size:16px;margin:0 0 8px;">ニュース <span id="searchCount" class="muted"></span></h2>
+        <div id="searchResults" class="cards" aria-live="polite"></div>
+        <div id="errorBox" class="error" style="display:none"></div>
+      </section>
+      <section>
+        <h2 style="font-size:16px;margin:0 0 8px;">あなたへのおすすめ</h2>
+        <div id="recoResults" class="cards" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ロジック：安全版（DOM待ち＆エラーハンドリング付き） -->
+  <script>
+  (function () {
+    let ITEMS = [];          // JSONの全件（=10件想定）
+    let LAST_QUERY = "";     // 最後に使った検索クエリ
+
+    // utils
+    const $ = s => document.querySelector(s);
+    const esc= s => (s||"").replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    const host = url => { try { return new URL(url).host.replace(/^www\./,''); } catch { return ""; } };
+    const stopwords = new Set("a,an,the,of,to,in,on,for,with,and,or,is,are,was,were,be,as,at,by,from,this,that,these,those,about,into,over,under,than,then,it,its,our,your,his,her,their,not".split(","));
+
+    // refs
+    let elLast, elSearchResults, elSearchCount, elRecoResults, elSearchInput, elSearchBtn, elError;
+    function need(sel){ const el=$(sel); if(!el) console.error(`Missing element: ${sel}`); return el; }
+    function initRefs(){
+      elLast          = need('#lastUpdated');
+      elSearchResults = need('#searchResults');
+      elSearchCount   = need('#searchCount');
+      elRecoResults   = need('#recoResults');
+      elSearchInput   = need('#searchInput');
+      elSearchBtn     = need('#searchBtn');
+      elError         = $('#errorBox');
     }
-    if(site && it._host.includes(site)) score += 5;
-    return score;
-  }
+    function showError(msg){
+      if (elError) { elError.style.display='block'; elError.textContent=msg; }
+      else if (elSearchResults) { elSearchResults.innerHTML = `<div class="muted">${esc(msg)}</div>`; }
+      console.error(msg);
+    }
 
-  function runSearch(q){
-    LAST_QUERY = q.trim();
-    const { site, tokens } = parseQuery(LAST_QUERY);
+    // 初期ロード：10件表示
+    async function loadLatest(){
+      try{
+        const res = await fetch('./ai_digest_latest.json', { cache:'no-store' });
+        if(!res.ok) throw new Error(`fetch ${res.status}`);
+        const json = await res.json();
+        const items = Array.isArray(json.items) ? json.items : [];
+        ITEMS = items.map((it,i)=>({...it,_id:i,_host:host(it.url)}));
+        if (elLast) elLast.textContent = `最新: ${json.generated_at || ''} / ${ITEMS.length}件`;
 
-    // ベースは（JSONの）10件。そこから該当のみを残す。
-    let filtered = ITEMS.slice(0, 10)
-      .map(it => ({ it, s: scoreItem(it, tokens, site) }))
-      .filter(x => x.s > 0)
-      .sort((a,b)=> b.s - a.s)
-      .map(x => x.it);
+        renderList(ITEMS.slice(0,10), elSearchResults);
+        if (elSearchCount) elSearchCount.textContent = `${Math.min(10, ITEMS.length)}件`;
+        renderRecommendations();
+      }catch(e){
+        showError(`データ読み込みに失敗しました。ai_digest_latest.json の配置を確認してください。詳細: ${e.message}`);
+      }
+    }
 
-    // site: 指定がある場合はさらにホストでフィルタ（scoreで加点もしているが安全のため）
-    if(site) filtered = filtered.filter(it => it._host.includes(site));
+    // 検索（site: ドメイン対応）— 10件から絞る
+    function tokenize(s){
+      return (s||"").toLowerCase().replace(/https?:\/\/\S+/g," ")
+        .replace(/[^a-z0-9ぁ-んァ-ン一-龥ー\- ]/g," ")
+        .split(/\s+/).filter(w=>w && !stopwords.has(w));
+    }
+    function parseQuery(q){
+      const m = q.match(/(?:^|\s)site:([^\s]+)/);
+      const site = m ? m[1].replace(/^https?:\/\//,'').replace(/^www\./,'') : "";
+      const cleaned = q.replace(/(?:^|\s)site:[^\s]+/,' ').trim();
+      return { site, tokens: tokenize(cleaned) };
+    }
+    function scoreItem(it, tokens, site){
+      if(!tokens.length && !site) return 1; // 空検索は全件
+      let score = 0;
+      const tks = tokenize(it.title), sks = tokenize(it.summary);
+      for(const t of tokens){ score += tks.filter(w=>w===t).length*3 + sks.filter(w=>w===t).length*1; }
+      if(site && it._host.includes(site)) score += 5;
+      return score;
+    }
+    function runSearch(q){
+      LAST_QUERY = (q||'').trim();
+      const { site, tokens } = parseQuery(LAST_QUERY);
+      let filtered = ITEMS.slice(0,10)
+        .map(it=>({it,s:scoreItem(it,tokens,site)}))
+        .filter(x=>x.s>0)
+        .sort((a,b)=>b.s-a.s)
+        .map(x=>x.it);
+      if(site) filtered = filtered.filter(it => it._host.includes(site));
+      renderList(filtered, elSearchResults);
+      if (elSearchCount) elSearchCount.textContent = `${filtered.length}件`;
+      renderRecommendations(filtered);
+    }
 
-    // 左に表示（件数は該当数）
-    renderList(filtered, $('#searchResults'));
-    $('#searchCount').textContent = `${filtered.length}件`;
+    // レコメンド（検索履歴優先→無ければ新着＋ドメイン多様性）
+    function uniqByHost(list){ const seen=new Set(), out=[]; for(const it of list){ if(!seen.has(it._host)){ seen.add(it._host); out.push(it); } } return out; }
+    function recommendByQuery(exIds=[]){
+      if(!LAST_QUERY) return [];
+      const { site, tokens } = parseQuery(LAST_QUERY);
+      let scored = ITEMS.filter(it=>!exIds.includes(it._id)).map(it=>({it,s:scoreItem(it,tokens,site)}));
+      scored = scored.filter(x=>x.s>0).sort((a,b)=>b.s-a.s).map(x=>x.it);
+      return uniqByHost(scored).slice(0,3);
+    }
+    function recommendDefault(exIds=[]){
+      const sorted = ITEMS.filter(it=>!exIds.includes(it._id))
+                          .slice()
+                          .sort((a,b)=> String(b.published||"") > String(a.published||"") ? 1 : -1);
+      return uniqByHost(sorted).slice(0,3);
+    }
+    function renderRecommendations(searchPicked=[]){
+      const ex = (searchPicked||[]).map(it=>it._id);
+      let recs = recommendByQuery(ex);
+      if(recs.length===0) recs = recommendDefault(ex);
+      renderList(recs, elRecoResults);
+    }
 
-    // 右は常に表示。検索クエリがあればそれを反映、無ければデフォルト
-    renderRecommendations(filtered);
-  }
-
-  // ③ レコメンド（右）：検索履歴を優先、無ければ新着＋ドメイン多様性
-  function uniqByHost(list){
-    const seen = new Set(); const out=[];
-    for(const it of list){ if(!seen.has(it._host)){ seen.add(it._host); out.push(it); } }
-    return out;
-  }
-  function recommendByQuery(excludeIds=[]){
-    if(!LAST_QUERY) return [];
-    const { site, tokens } = parseQuery(LAST_QUERY);
-    let scored = ITEMS
-      .filter(it => !excludeIds.includes(it._id))
-      .map(it => ({ it, s: scoreItem(it, tokens, site) }));
-    scored = scored.filter(x=>x.s>0).sort((a,b)=>b.s-a.s).map(x=>x.it);
-    return uniqByHost(scored).slice(0,3);
-  }
-  function recommendDefault(excludeIds=[]){
-    const pool = ITEMS.filter(it => !excludeIds.includes(it._id));
-    const sorted = pool.slice().sort((a,b)=> String(b.published||"") > String(a.published||"") ? 1 : -1);
-    return uniqByHost(sorted).slice(0,3);
-  }
-  function renderRecommendations(searchPicked=[]){
-    const exclude = (searchPicked||[]).map(it=>it._id);
-    let recs = recommendByQuery(exclude);
-    if(recs.length===0) recs = recommendDefault(exclude);
-    renderList(recs, $('#recoResults'));
-  }
-
-  // 共通カード描画
-  function cardHTML(it){
-    return `
-      <article class="card">
-        <div class="meta">
-          <span class="chip">${esc(it._host || "source")}</span>
-          <span>${esc(it.published || "")}</span>
-        </div>
-        <div class="title">${esc(it.title || "(無題)")}</div>
-        <div class="summary">${esc(it.summary || "")}</div>
+    // 共通描画
+    function cardHTML(it){
+      return `<article class="card">
+        <div class="meta"><span class="chip">${esc(it._host||"source")}</span><span>${esc(it.published||"")}</span></div>
+        <div class="title">${esc(it.title||"(無題)")}</div>
+        <div class="summary">${esc(it.summary||"")}</div>
         <div class="actions">
           <a class="btn" href="${it.url}" target="_blank" rel="noopener">原文を開く</a>
           <button class="btn" data-copy="${esc((it.summary||"").replace(/"/g,'&quot;'))}">要約をコピー</button>
         </div>
       </article>`;
-  }
-  function renderList(items, root){
-    root.innerHTML = items.length
-      ? items.map(cardHTML).join("")
-      : `<div class="muted">該当なし</div>`;
-    root.querySelectorAll('button[data-copy]').forEach(btn=>{
-      btn.addEventListener('click', e=>{
-        navigator.clipboard.writeText(e.currentTarget.dataset.copy||"");
-        btn.textContent = "コピーしました ✓";
-        setTimeout(()=> btn.textContent = "要約をコピー", 1200);
+    }
+    function renderList(items, root){
+      if(!root) return;
+      root.innerHTML = items && items.length ? items.map(cardHTML).join("") : `<div class="muted">該当なし</div>`;
+      root.querySelectorAll('button[data-copy]').forEach(btn=>{
+        btn.addEventListener('click', e=>{
+          navigator.clipboard.writeText(e.currentTarget.dataset.copy||"");
+          btn.textContent="コピーしました ✓"; setTimeout(()=>btn.textContent="要約をコピー",1200);
+        });
       });
+    }
+
+    // DOMReady
+    window.addEventListener('DOMContentLoaded', () => {
+      initRefs();
+      if (!elSearchInput || !elSearchBtn || !elSearchResults || !elRecoResults) {
+        showError('必要な要素が見つかりません。index.html のIDを確認してください。');
+        return;
+      }
+      elSearchBtn.addEventListener('click', ()=> runSearch(elSearchInput.value));
+      elSearchInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(e.target.value); });
+      loadLatest();
     });
-  }
+  })();
+  </script>
 
-  // イベント
-  $('#searchBtn').addEventListener('click', ()=> runSearch($('#searchInput').value));
-  $('#searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(e.target.value); });
-
-  // 起動
-  loadLatest();
-</script>
+  <!-- Dify チャットボット（右下固定のバブル） -->
+  <script> window.difyChatbotConfig = { token: 'G4x8fpppi7CUJMgV' } </script>
+  <script src="https://udify.app/embed.min.js" id="G4x8fpppi7CUJMgV" defer></script>
+  <style>
+    #dify-chatbot-bubble-button { background-color:#1C64F2 !important; position:fixed !important; right:24px !important; bottom:24px !important; z-index:2147483647 !important; }
+    #dify-chatbot-bubble-window { width:24rem !important; height:40rem !important; position:fixed !important; right:24px !important; bottom:92px !important; z-index:2147483647 !important; }
+  </style>
+</body>
+</html>
