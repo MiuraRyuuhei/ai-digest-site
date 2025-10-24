@@ -1,11 +1,29 @@
 {
-  "generated_at": "2025-10-23 11:24 JST",
+  "generated_at": "2025-10-24 11:20 JST",
   "items": [
+    {
+      "title": "New updates and more access to Google Earth AI",
+      "url": "https://blog.google/technology/research/new-updates-and-more-access-to-google-earth-ai/",
+      "published": "2025-10-24 00:00",
+      "summary": "Google Earth AI helps enterprises, nonprofits, and cities with everything from environmental monitoring to disaster response . Google Earth's AI can help organizations and cities monitor environmental monitoring, disaster response, and help disaster response. Google Earth is now being developed with a new AI-powered version of Google Earth, called Google Maps, that can be controlled by an artificially-powered AI machine ."
+    },
+    {
+      "title": "Building the Open Agent Ecosystem Together: Introducing OpenEnv",
+      "url": "https://huggingface.co/blog/openenv",
+      "published": "2025-10-23 09:00",
+      "summary": "Building the Open Agent Ecosystem Together: Introducing OpenEnv . Introducing the Open Env tool to help open agents in the open agent ecosystem . Building the ecosystem together: Building an open agent ecosystem together: Openenv . Building an Open Agent ecosystem: Building the OAS together: Build an OAS with an agent that works together ."
+    },
     {
       "title": "The CMA’s designation of Google’s mobile ecosystem",
       "url": "https://blog.google/around-the-globe/google-europe/united-kingdom/cmas-designation-of-googles-mobile-ecosystem/",
       "published": "2025-10-22 22:00",
       "summary": "Illustration showing a laptop with the British flag and the London skyline in the background . Illustration shows a laptop and a London skyline with the UK flag . The British flag is the national symbol of the British state of origin in the UK, according to the UK's most recent major city landmarks . The London skyline is the backdrop of a series of British landmarks, including the London landmarks ."
+    },
+    {
+      "title": "Hugging Face and VirusTotal collaborate to strengthen AI security",
+      "url": "https://huggingface.co/blog/virustotal",
+      "published": "2025-10-22 09:00",
+      "summary": "Hugging Face and VirusTotal collaborate to strengthen AI security . Hugging face and Virus total collaborate to improve AI security in the U.S. Hugging faces and Virus Total collaborate to boost AI security for the first time . VirusTotal is also working to improve the security of AI security systems in the United States and Europe in the coming years ."
     },
     {
       "title": "Sentence Transformers is joining Hugging Face!",
@@ -42,24 +60,6 @@
       "url": "https://blog.google/technology/research/ten-years-google-genomics/",
       "published": "2025-10-17 02:05",
       "summary": "Blue graphic DNA double helix with text: \"A decade of genomics research at Google\" Google says it's a decade of \"genomics research\" at Google . Google: A decade of genetic research has led to the discovery of a new DNA structure . Google says the new DNA sequence is the result of a 10-year Google search for DNA sequences ."
-    },
-    {
-      "title": "DeepSomatic, an open-source AI model, is speeding up genetic analysis for cancer research.",
-      "url": "https://blog.google/technology/research/deepsomatic-an-open-source-ai-model-is-speeding-up-genetic-analysis-for-cancer-research/",
-      "published": "2025-10-17 02:05",
-      "summary": "DeepSomatic is a new AI tool that helps identify complex genetic variants in cancer cells . It's been created by Google and Microsoft . The tool is designed to identify genetic variants that can be traced to cancer cells using an algorithm that can identify a specific gene in a cancer cell to identify the cancer cells involved in the cancer process . It is the latest in a series of AI tools developed by Microsoft and Google ."
-    },
-    {
-      "title": "Google Cloud C4 Brings a 70% TCO improvement on GPT OSS with Intel and Hugging Face",
-      "url": "https://huggingface.co/blog/gpt-oss-on-intel-xeon",
-      "published": "2025-10-16 09:00",
-      "summary": "Google Cloud C4 Brings a 70% TCO improvement on GPT OSS with Intel and Hugging Face . Google Cloud will be able to run its cloud on a cloud that costs up to $1,000 per hour . The cloud will be powered by Google Cloud Cloud Cloud, Google Cloud and Intel's C4 Cloud+. Google Cloud is the world's largest cloud computing platform ."
-    },
-    {
-      "title": "Introducing Veo 3.1 and advanced capabilities in Flow",
-      "url": "https://blog.google/technology/ai/veo-updates-flow/",
-      "published": "2025-10-16 01:00",
-      "summary": "Veo 3.1 text with stills from generated videos . Veo includes stills, stills and stills images from the Veo Project 3.0 app . The Veo project is based on an app called Veo.1, which was released in March 2013 . For more information on Veo, visit Veo3.1.1 ."
     }
   ]
 }
