@@ -1,6 +1,12 @@
 {
-  "generated_at": "2025-10-24 11:20 JST",
+  "generated_at": "2025-10-25 11:22 JST",
   "items": [
+    {
+      "title": "LeRobot v0.4.0: Super Charging OSS Robotics Learning",
+      "url": "https://huggingface.co/blog/lerobot-release-v040",
+      "published": "2025-10-24 09:00",
+      "summary": "LeRobot v0.4.0: Super Charging OSS Robotics Learning Learning . LeRobots can be programmed to be super-charged and learn to charge with the latest version of the OSS-Robot . OSS Learning Learning can be controlled by a robot that learns how to learn and learn from a robot's learning chip ."
+    },
     {
       "title": "New updates and more access to Google Earth AI",
       "url": "https://blog.google/technology/research/new-updates-and-more-access-to-google-earth-ai/",
@@ -54,12 +60,6 @@
       "url": "https://blog.google/technology/developers/ai-studio-updates-more-control/",
       "published": "2025-10-19 00:00",
       "summary": "One Playground in Google AI Studio was created in Google's AI Studio . Playground is a Google Playground for the company's AI studio . Google is working with AI Studio to create a game-based environment for AI Studio's AI labors . Google has been working with the company to develop a new AI lab for the past two years ."
-    },
-    {
-      "title": "10 years of genomics research at Google",
-      "url": "https://blog.google/technology/research/ten-years-google-genomics/",
-      "published": "2025-10-17 02:05",
-      "summary": "Blue graphic DNA double helix with text: \"A decade of genomics research at Google\" Google says it's a decade of \"genomics research\" at Google . Google: A decade of genetic research has led to the discovery of a new DNA structure . Google says the new DNA sequence is the result of a 10-year Google search for DNA sequences ."
     }
   ]
 }
