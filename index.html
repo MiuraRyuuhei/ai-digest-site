@@ -59,9 +59,16 @@
         <div id="searchResults" class="cards" aria-live="polite"></div>
         <div id="errorBox" class="error" style="display:none"></div>
       </section>
+
       <section>
         <h2 style="font-size:16px;margin:0 0 8px;">あなたへのおすすめ</h2>
         <div id="recoResults" class="cards" aria-live="polite"></div>
+
+        <!-- ▼ お気に入り一覧（新設） -->
+        <section style="margin-top:16px;">
+          <h2 style="font-size:16px;margin:0 0 8px;">お気に入り</h2>
+          <div id="favList" class="cards" aria-live="polite"></div>
+        </section>
       </section>
     </div>
   </main>
@@ -78,7 +85,7 @@
     const stopwords = new Set("a,an,the,of,to,in,on,for,with,and,or,is,are,was,were,be,as,at,by,from,this,that,these,those,about,into,over,under,than,then,it,its,our,your,his,her,their,not".split(","));
 
     // refs
-    let elLast, elSearchResults, elSearchCount, elRecoResults, elSearchInput, elSearchBtn, elError, elFavInfo, elAddPrefBtn, elClearFavBtn;
+    let elLast, elSearchResults, elSearchCount, elRecoResults, elSearchInput, elSearchBtn, elError, elFavInfo, elAddPrefBtn, elClearFavBtn, elFavList;
     function initRefs(){
       elLast          = $('#lastUpdated');
       elSearchResults = $('#searchResults');
@@ -90,6 +97,7 @@
       elFavInfo       = $('#favInfo');
       elAddPrefBtn    = $('#addPrefBtn');
       elClearFavBtn   = $('#clearFavBtn');
+      elFavList       = $('#favList');          // ★ 追加
     }
     function showError(msg){
       if (elError) { elError.style.display='block'; elError.textContent=msg; }
@@ -107,7 +115,7 @@
         saveFavs(favs);
       }
     }
-    function clearFavorites(){ saveFavs([]); renderRecommendations(); }
+    function clearFavorites(){ saveFavs([]); renderRecommendations(); renderFavorites(); }  // ★ お気に入り一覧も更新
     function renderFavInfo(){
       const favs = loadFavs();
       elFavInfo.innerHTML = favs.length ? `お気に入り: ${favs.length} 件 <span class="hr" style="flex:1"></span>` : "";
@@ -131,6 +139,7 @@
         if (elSearchCount) elSearchCount.textContent = `${Math.min(10, ITEMS.length)}件`;
         renderFavInfo();
         renderRecommendations();
+        renderFavorites(); // ★ 初期表示でお気に入り一覧も描画
       }catch(e){
         showError(`データ読み込みに失敗しました。ai_digest_latest.json の配置を確認してください。詳細: ${e.message}`);
       }
@@ -204,6 +213,20 @@
       renderList(recs.slice(0,3), elRecoResults);
     }
 
+    // ===== お気に入り一覧の描画 =====
+    function renderFavorites(){
+      const favs = loadFavs();
+      // URL一致で可能な限りリッチに復元（見つからない時は最小情報）
+      const list = favs.map(f => ITEMS.find(it => it.url === f.url) || {
+        title: f.title || f.url,
+        url: f.url,
+        published: "",
+        summary: "",
+        _host: f.host || "",
+      });
+      renderList(list, elFavList);
+    }
+
     // ===== 描画共通 =====
     function cardHTML(it){
       return `<article class="card">
@@ -235,6 +258,7 @@
             e.currentTarget.textContent = "★ 追加済み";
             setTimeout(()=> e.currentTarget.textContent = "♡ お気に入り", 1200);
             renderRecommendations();
+            renderFavorites(); // ★ 追加後に一覧も更新
           }
         });
       });
@@ -251,6 +275,7 @@
         const favs = loadFavs(); favs.push({ url:u, title:`(external) ${h}`, host:h, emb:hostVec });
         saveFavs(favs);
         renderRecommendations();
+        renderFavorites();
         return true;
       } else {
         alert("同じドメインの記事がまだ無いので、この方法では嗜好に追加できません。まずはそのサイトの記事がJSONに入るようにFEEDSへ追加してください。");
