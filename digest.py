@@ -5,14 +5,36 @@ from transformers import pipeline
 
 JST = pytz.timezone("Asia/Tokyo")
 
+#3 収集するAI系RSS  ← ここを上書き
 FEEDS = [
+    # 既存
     "https://deepmind.google/discover/blog/rss.xml",
     "https://blog.google/technology/ai/rss/",
-    "https://feeds.arxiv.org/rss/cs.AI",
     "https://feeds.arxiv.org/rss/cs.LG",
     "https://huggingface.co/blog/feed.xml",
     "https://www.nvidia.com/en-us/about-nvidia/rss/feed.xml",
+
+    # ---- ここから追記（10+）----
+    # 研究系（arXiv各分野）
+    "https://feeds.arxiv.org/rss/cs.AI",      # Artificial Intelligence
+    "https://feeds.arxiv.org/rss/cs.CL",      # Computation and Language
+    "https://feeds.arxiv.org/rss/cs.CV",      # Computer Vision
+    "https://feeds.arxiv.org/rss/stat.ML",    # Statistics / Machine Learning
+
+    # 研究・教育機関
+    "https://hai.stanford.edu/news/rss.xml",  # Stanford HAI（ニュースRSS）
+    "https://www.microsoft.com/en-us/research/feed/",   # Microsoft Research
+
+    # メディア（AIカテゴリ）
+    "https://techcrunch.com/tag/artificial-intelligence/feed/",
+    "https://venturebeat.com/category/ai/feed/",
+    "https://thegradient.pub/rss/",
+
+    # コミュニティ/リソース
+    "https://paperswithcode.com/rss"          # 論文＋実装リンク
+    # ※ フィードが落ちる場合は自動でスキップされます
 ]
+
 
 def clean(t: str) -> str:
     return re.sub(r"\s+", " ", (t or "")).strip()
