@@ -1,6 +1,6 @@
-# digest.py  --- GitHub Actions 用：要約 + ベクトル埋め込み + JSON出力
-# 収集 → 正規化/重複除去 → AIキーワードで軽フィルタ → 要約 → 埋め込み → JSON
-import feedparser, datetime as dt, pytz, re, textwrap, hashlib, json
+# digest.py  --- GitHub Actions 用
+# 収集 → 正規化/重複除去 → 軽いAIフィルタ → 要約 → 埋め込み → 2つのJSON出力
+import feedparser, datetime as dt, pytz, re, textwrap, hashlib, json, os
 from pathlib import Path
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer
@@ -8,12 +8,12 @@ from sentence_transformers import SentenceTransformer
 # ===== タイムゾーン =====
 JST = pytz.timezone("Asia/Tokyo")
 
-# ===== AI関連の軽量フィルタ（必要に応じて調整可）=====
+# ===== AI関連の軽量フィルタ（必要に応じて調整）=====
 AI_KEYWORDS = [
     "ai", "人工知能", "machine learning", "ml", "deep learning", "dl",
-    "gpt", "llm", "transformer", "diffusion", "vision-language", "multi-modal",
+    "gpt", "llm", "transformer", "diffusion", "vision-language", "multimodal",
     "rag", "retrieval", "prompt", "fine-tune", "finetune", "inference",
-    "open-source ai", "model release", "benchmark", "alignment"
+    "open-source ai", "model release", "benchmark", "alignment", "agent", "agents"
 ]
 def is_ai_related(entry: dict) -> bool:
     text = f"{entry.get('title','')} {entry.get('rss_summary','')}".lower()
@@ -21,29 +21,34 @@ def is_ai_related(entry: dict) -> bool:
 
 # ===== 収集するAI系RSS =====
 FEEDS = [
-    # 既存
     "https://deepmind.google/discover/blog/rss.xml",
     "https://blog.google/technology/ai/rss/",
     "https://feeds.arxiv.org/rss/cs.LG",
     "https://huggingface.co/blog/feed.xml",
     "https://www.nvidia.com/en-us/about-nvidia/rss/feed.xml",
-
-    # 追記（10+）
-    "https://feeds.arxiv.org/rss/cs.AI",      # Artificial Intelligence
-    "https://feeds.arxiv.org/rss/cs.CL",      # Computation and Language
-    "https://feeds.arxiv.org/rss/cs.CV",      # Computer Vision
-    "https://feeds.arxiv.org/rss/stat.ML",    # Statistics / Machine Learning
-    "https://hai.stanford.edu/news/rss.xml",          # Stanford HAI
-    "https://www.microsoft.com/en-us/research/feed/", # Microsoft Research
+    "https://feeds.arxiv.org/rss/cs.AI",
+    "https://feeds.arxiv.org/rss/cs.CL",
+    "https://feeds.arxiv.org/rss/cs.CV",
+    "https://feeds.arxiv.org/rss/stat.ML",
+    "https://hai.stanford.edu/news/rss.xml",
+    "https://www.microsoft.com/en-us/research/feed/",
     "https://techcrunch.com/tag/artificial-intelligence/feed/",
     "https://venturebeat.com/category/ai/feed/",
     "https://thegradient.pub/rss/",
-    "https://paperswithcode.com/rss"
+    "https://paperswithcode.com/rss",
 ]
 
 # ===== ユーティリティ =====
 def clean(t: str) -> str:
     return re.sub(r"\s+", " ", (t or "")).strip()
+
+def host(url: str) -> str:
+    try:
+        from urllib.parse import urlparse
+        h = urlparse(url).netloc.lower()
+        return h[4:] if h.startswith("www.") else h
+    except Exception:
+        return ""
 
 def fetch_entries(feeds):
     """RSSを巡回して正規化。JST化・重複除去・新しい順・AIキーワードで軽フィルタ。"""
@@ -75,13 +80,32 @@ def fetch_entries(feeds):
             continue
         seen.add(key); uniq.append(it)
 
-    # ★AIキーワードで軽く絞り込み（不要なら次行をコメントアウト）
+    # 軽フィルタ（不要ならコメントアウト）
     uniq = [it for it in uniq if is_ai_related(it)]
     return uniq
 
 def within_24h(jst_dt):
     if not jst_dt: return False
     return (dt.datetime.now(JST) - jst_dt).total_seconds() <= 24*3600
+
+# ===== 履歴コーパスのマージ =====
+CORPUS_PATH = Path("ai_digest_corpus.json")
+CORPUS_LIMIT = 1000  # 最大保持件数
+
+def load_corpus():
+    if CORPUS_PATH.exists():
+        try:
+            return json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            return {"items": []}
+    return {"items": []}
+
+def save_corpus(corpus):
+    # 新しい順に並べ直し＆上限カット
+    items = corpus.get("items", [])
+    items.sort(key=lambda x: x.get("published",""), reverse=True)
+    corpus["items"] = items[:CORPUS_LIMIT]
+    CORPUS_PATH.write_text(json.dumps(corpus, ensure_ascii=False, indent=2), encoding="utf-8")
 
 def main():
     summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
@@ -96,35 +120,56 @@ def main():
         except Exception:
             return textwrap.shorten(text, width=220, placeholder="…")
 
+    # 収集
     raw = fetch_entries(FEEDS)
     today = [e for e in raw if within_24h(e["published"])]
-    top10 = today[:10] if len(today) >= 10 else raw[:10]
+    top10_source = today if len(today) >= 10 else raw
+    top10 = top10_source[:10]
 
-    texts_for_embed, digest_items = [], []
+    # 要約して latest 用の配列を作る
+    texts_for_embed, latest_items = [], []
     for e in top10:
         base = e["rss_summary"] or e["title"]
         summ = summarize(base)
-        digest_items.append({
+        latest_items.append({
             "title": e["title"],
             "url": e["link"],
             "published": e["published"].strftime("%Y-%m-%d %H:%M") if e["published"] else "",
-            "summary": summ
+            "summary": summ,
+            "source": host(e["link"])
         })
         texts_for_embed.append(f"{e['title']} {summ}")
 
-    # 埋め込み（まとめてエンコード / 正規化済み）
+    # 埋め込み（latest）
     embs = encoder.encode(texts_for_embed, normalize_embeddings=True)
-    for item, vec in zip(digest_items, embs):
+    for item, vec in zip(latest_items, embs):
         item["emb"] = [float(x) for x in vec]
 
+    # latest.json を出力
     now = dt.datetime.now(JST).strftime("%Y-%m-%d %H:%M")
-    json_out = {"generated_at": f"{now} JST", "items": digest_items}
+    latest_json = {"generated_at": f"{now} JST", "items": latest_items}
+    Path("ai_digest_latest.json").write_text(json.dumps(latest_json, ensure_ascii=False, indent=2), encoding="utf-8")
+    print("✅ wrote ai_digest_latest.json with", len(latest_items), "items")
 
-    Path("ai_digest_latest.json").write_text(
-        json.dumps(json_out, ensure_ascii=False, indent=2),
-        encoding="utf-8"
-    )
-    print("✅ updated ai_digest_latest.json with", len(digest_items), "items")
+    # ===== 履歴コーパスを更新（最新10件を取り込み、重複はURLでマージ）=====
+    corpus = load_corpus()
+    url_to_idx = {it.get("url"): i for i, it in enumerate(corpus.get("items", []))}
+    for it in latest_items:
+        u = it["url"]
+        rec = {
+            "title": it["title"],
+            "url": u,
+            "published": it["published"],
+            "summary": it["summary"],
+            "emb": it["emb"],
+            "source": it["source"]
+        }
+        if u in url_to_idx:
+            corpus["items"][url_to_idx[u]] = rec
+        else:
+            corpus.setdefault("items", []).append(rec)
+    save_corpus(corpus)
+    print("✅ merged into ai_digest_corpus.json (total:", len(corpus["items"]), ")")
 
 if __name__ == "__main__":
     main()
