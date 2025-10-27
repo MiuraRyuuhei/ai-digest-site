@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AIニュースダイジェスト</title>
+  <title>AIニュースピックアップ</title>
   <style>
     :root { --bg:#0b1020; --card:#111831; --ink:#e6ecff; --muted:#9fb0ff; --accent:#6ea8fe; --chip:#1a2345; --ok:#3ddc97; --border:#22305f; }
     *{box-sizing:border-box}
@@ -18,11 +18,9 @@
     .muted{color:var(--muted)}
     .pill{padding:4px 8px;border-radius:999px;background:#103a2b;color:#b9f5dd;border:1px solid #1f6b4f;font-size:12px}
 
-    /* 2カラム */
     .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
     @media (max-width:860px){ .cols{grid-template-columns:1fr} }
 
-    /* カード */
     .cards{display:grid;gap:12px}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
     .title{font-weight:700;font-size:16px;line-height:1.4}
@@ -32,11 +30,12 @@
     .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 
     .error{color:#ff9b9b;background:#351a1a;border:1px solid #642323;padding:8px 12px;border-radius:10px}
+    .hr{height:1px;background:linear-gradient(90deg,transparent,#243059,transparent);margin:8px 0}
+    .favbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   </style>
 </head>
 
 <body>
-  <!-- ヘッダー：検索ボックスのみ -->
   <header>
     <div class="wrap">
       <div class="row">
@@ -46,11 +45,13 @@
       <div class="row" style="margin-top:10px">
         <input id="searchInput" class="grow" type="search" placeholder="キーワード または  site:huggingface.co  のように検索…" />
         <button id="searchBtn" class="btn">検索</button>
+        <button id="addPrefBtn" class="btn" title="外部URLを嗜好に追加">＋ 外部リンク</button>
+        <button id="clearFavBtn" class="btn" title="お気に入りをクリア">♡ クリア</button>
       </div>
+      <div id="favInfo" class="favbar muted" style="margin-top:6px"></div>
     </div>
   </header>
 
-  <!-- 本文：左=ニュース（初期10件→検索で絞り込み）／右=レコメンド常時 -->
   <main class="wrap">
     <div class="cols" style="margin-top:12px;">
       <section>
@@ -65,10 +66,9 @@
     </div>
   </main>
 
-  <!-- ロジック：安全版（DOM待ち＆エラーハンドリング付き） -->
   <script>
   (function () {
-    let ITEMS = [];          // JSONの全件（=10件想定）
+    let ITEMS = [];          // JSON全件（10件想定）。各 item.emb は正規化済みベクトル
     let LAST_QUERY = "";     // 最後に使った検索クエリ
 
     // utils
@@ -78,42 +78,65 @@
     const stopwords = new Set("a,an,the,of,to,in,on,for,with,and,or,is,are,was,were,be,as,at,by,from,this,that,these,those,about,into,over,under,than,then,it,its,our,your,his,her,their,not".split(","));
 
     // refs
-    let elLast, elSearchResults, elSearchCount, elRecoResults, elSearchInput, elSearchBtn, elError;
-    function need(sel){ const el=$(sel); if(!el) console.error(`Missing element: ${sel}`); return el; }
+    let elLast, elSearchResults, elSearchCount, elRecoResults, elSearchInput, elSearchBtn, elError, elFavInfo, elAddPrefBtn, elClearFavBtn;
     function initRefs(){
-      elLast          = need('#lastUpdated');
-      elSearchResults = need('#searchResults');
-      elSearchCount   = need('#searchCount');
-      elRecoResults   = need('#recoResults');
-      elSearchInput   = need('#searchInput');
-      elSearchBtn     = need('#searchBtn');
+      elLast          = $('#lastUpdated');
+      elSearchResults = $('#searchResults');
+      elSearchCount   = $('#searchCount');
+      elRecoResults   = $('#recoResults');
+      elSearchInput   = $('#searchInput');
+      elSearchBtn     = $('#searchBtn');
       elError         = $('#errorBox');
+      elFavInfo       = $('#favInfo');
+      elAddPrefBtn    = $('#addPrefBtn');
+      elClearFavBtn   = $('#clearFavBtn');
     }
     function showError(msg){
       if (elError) { elError.style.display='block'; elError.textContent=msg; }
-      else if (elSearchResults) { elSearchResults.innerHTML = `<div class="muted">${esc(msg)}</div>`; }
       console.error(msg);
     }
 
-    // 初期ロード：10件表示
+    // ===== お気に入り（localStorage） =====
+    const FAV_KEY = "ai_digest_favs";
+    function loadFavs(){ try{ return JSON.parse(localStorage.getItem(FAV_KEY)||"[]"); }catch{ return []; } }
+    function saveFavs(list){ localStorage.setItem(FAV_KEY, JSON.stringify(list)); renderFavInfo(); }
+    function addFavorite(item){
+      const favs = loadFavs();
+      if (!favs.find(x => x.url === item.url)) {
+        favs.push({ url:item.url, title:item.title, host:item._host, emb:item.emb||null });
+        saveFavs(favs);
+      }
+    }
+    function clearFavorites(){ saveFavs([]); renderRecommendations(); }
+    function renderFavInfo(){
+      const favs = loadFavs();
+      elFavInfo.innerHTML = favs.length ? `お気に入り: ${favs.length} 件 <span class="hr" style="flex:1"></span>` : "";
+    }
+
+    // ===== ベクトル演算 =====
+    function meanVector(vecs){ if(!vecs.length) return null; const d=vecs[0].length; const out=new Array(d).fill(0);
+      for(const v of vecs){ for(let i=0;i<d;i++) out[i]+=v[i]; }
+      for(let i=0;i<d;i++) out[i]/=vecs.length; return out; }
+    function cosineSim(a,b){ let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; return s; } // embは正規化済み
+
+    // ===== データ読み込み（初期10件表示） =====
     async function loadLatest(){
       try{
         const res = await fetch('./ai_digest_latest.json', { cache:'no-store' });
         if(!res.ok) throw new Error(`fetch ${res.status}`);
         const json = await res.json();
-        const items = Array.isArray(json.items) ? json.items : [];
-        ITEMS = items.map((it,i)=>({...it,_id:i,_host:host(it.url)}));
+        ITEMS = (json.items||[]).map((it,i)=>({...it,_id:i,_host:host(it.url)}));
         if (elLast) elLast.textContent = `最新: ${json.generated_at || ''} / ${ITEMS.length}件`;
-
         renderList(ITEMS.slice(0,10), elSearchResults);
         if (elSearchCount) elSearchCount.textContent = `${Math.min(10, ITEMS.length)}件`;
+        renderFavInfo();
         renderRecommendations();
       }catch(e){
         showError(`データ読み込みに失敗しました。ai_digest_latest.json の配置を確認してください。詳細: ${e.message}`);
       }
     }
 
-    // 検索（site: ドメイン対応）— 10件から絞る
+    // ===== 検索（10件から絞る / site:対応） =====
     function tokenize(s){
       return (s||"").toLowerCase().replace(/https?:\/\/\S+/g," ")
         .replace(/[^a-z0-9ぁ-んァ-ン一-龥ー\- ]/g," ")
@@ -126,12 +149,11 @@
       return { site, tokens: tokenize(cleaned) };
     }
     function scoreItem(it, tokens, site){
-      if(!tokens.length && !site) return 1; // 空検索は全件
-      let score = 0;
-      const tks = tokenize(it.title), sks = tokenize(it.summary);
-      for(const t of tokens){ score += tks.filter(w=>w===t).length*3 + sks.filter(w=>w===t).length*1; }
-      if(site && it._host.includes(site)) score += 5;
-      return score;
+      if(!tokens.length && !site) return 1;
+      let s=0; const tt=tokenize(it.title), ss=tokenize(it.summary);
+      for(const t of tokens){ s += tt.filter(w=>w===t).length*3 + ss.filter(w=>w===t).length*1; }
+      if(site && it._host.includes(site)) s+=5;
+      return s;
     }
     function runSearch(q){
       LAST_QUERY = (q||'').trim();
@@ -147,29 +169,42 @@
       renderRecommendations(filtered);
     }
 
-    // レコメンド（検索履歴優先→無ければ新着＋ドメイン多様性）
+    // ===== レコメンド：お気に入り嗜好ベクトル優先 → 検索クエリ → 新着 =====
     function uniqByHost(list){ const seen=new Set(), out=[]; for(const it of list){ if(!seen.has(it._host)){ seen.add(it._host); out.push(it); } } return out; }
-    function recommendByQuery(exIds=[]){
+    function recommendByQuery(ex=[]){
       if(!LAST_QUERY) return [];
       const { site, tokens } = parseQuery(LAST_QUERY);
-      let scored = ITEMS.filter(it=>!exIds.includes(it._id)).map(it=>({it,s:scoreItem(it,tokens,site)}));
+      let scored = ITEMS.filter(it=>!ex.includes(it._id)).map(it=>({it,s:scoreItem(it,tokens,site)}));
       scored = scored.filter(x=>x.s>0).sort((a,b)=>b.s-a.s).map(x=>x.it);
       return uniqByHost(scored).slice(0,3);
     }
-    function recommendDefault(exIds=[]){
-      const sorted = ITEMS.filter(it=>!exIds.includes(it._id))
-                          .slice()
-                          .sort((a,b)=> String(b.published||"") > String(a.published||"") ? 1 : -1);
+    function recommendDefault(ex=[]){
+      const sorted = ITEMS.filter(it=>!ex.includes(it._id)).slice().sort((a,b)=> String(b.published||"") > String(a.published||"") ? 1 : -1);
       return uniqByHost(sorted).slice(0,3);
     }
     function renderRecommendations(searchPicked=[]){
-      const ex = (searchPicked||[]).map(it=>it._id);
-      let recs = recommendByQuery(ex);
-      if(recs.length===0) recs = recommendDefault(ex);
-      renderList(recs, elRecoResults);
+      const exclude = (searchPicked||[]).map(it=>it._id);
+
+      // 1) お気に入り嗜好ベクトル
+      const favs = loadFavs();
+      const favEmbs = favs.map(f => f.emb).filter(Boolean);
+      let recs = [];
+      if (favEmbs.length){
+        const pref = meanVector(favEmbs);
+        const cand = ITEMS.filter(it => !exclude.includes(it._id) && !favs.find(f=>f.url===it.url) && Array.isArray(it.emb));
+        recs = cand.map(it => ({ it, s: cosineSim(pref, it.emb) }))
+                   .sort((a,b)=> b.s - a.s)
+                   .map(x=>x.it);
+      }
+
+      // 2) 少なければ検索意図 or 新着
+      if (recs.length===0) recs = recommendByQuery(exclude);
+      if (recs.length===0) recs = recommendDefault(exclude);
+
+      renderList(recs.slice(0,3), elRecoResults);
     }
 
-    // 共通描画
+    // ===== 描画共通 =====
     function cardHTML(it){
       return `<article class="card">
         <div class="meta"><span class="chip">${esc(it._host||"source")}</span><span>${esc(it.published||"")}</span></div>
@@ -178,6 +213,7 @@
         <div class="actions">
           <a class="btn" href="${it.url}" target="_blank" rel="noopener">原文を開く</a>
           <button class="btn" data-copy="${esc((it.summary||"").replace(/"/g,'&quot;'))}">要約をコピー</button>
+          <button class="btn" data-fav="${esc(it.url)}">♡ お気に入り</button>
         </div>
       </article>`;
     }
@@ -190,23 +226,54 @@
           btn.textContent="コピーしました ✓"; setTimeout(()=>btn.textContent="要約をコピー",1200);
         });
       });
+      root.querySelectorAll('button[data-fav]').forEach(btn=>{
+        btn.addEventListener('click', e=>{
+          const url = e.currentTarget.getAttribute('data-fav');
+          const item = (ITEMS||[]).find(x => x.url === url);
+          if (item){
+            addFavorite(item);
+            e.currentTarget.textContent = "★ 追加済み";
+            setTimeout(()=> e.currentTarget.textContent = "♡ お気に入り", 1200);
+            renderRecommendations();
+          }
+        });
+      });
     }
 
-    // DOMReady
+    // ===== 外部URLを嗜好に追加（同ドメイン代表ベクトルを流用） =====
+    function addExternalPreference(url){
+      if(!url) return false;
+      let u=url.trim(); if(!/^https?:\/\//.test(u)) u="https://"+u;
+      const h = host(u);
+      const sameHost = ITEMS.filter(it => it._host === h && Array.isArray(it.emb));
+      if (sameHost.length){
+        const hostVec = meanVector(sameHost.map(it=>it.emb));
+        const favs = loadFavs(); favs.push({ url:u, title:`(external) ${h}`, host:h, emb:hostVec });
+        saveFavs(favs);
+        renderRecommendations();
+        return true;
+      } else {
+        alert("同じドメインの記事がまだ無いので、この方法では嗜好に追加できません。まずはそのサイトの記事がJSONに入るようにFEEDSへ追加してください。");
+        return false;
+      }
+    }
+
+    // ===== イベント & 起動 =====
     window.addEventListener('DOMContentLoaded', () => {
       initRefs();
-      if (!elSearchInput || !elSearchBtn || !elSearchResults || !elRecoResults) {
-        showError('必要な要素が見つかりません。index.html のIDを確認してください。');
-        return;
-      }
       elSearchBtn.addEventListener('click', ()=> runSearch(elSearchInput.value));
       elSearchInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(e.target.value); });
+      elAddPrefBtn.addEventListener('click', ()=>{
+        const u = prompt('嗜好に反映したい外部リンクのURLを入力してください');
+        if(u) addExternalPreference(u);
+      });
+      elClearFavBtn.addEventListener('click', ()=>{ if(confirm('お気に入りを全て削除しますか？')) clearFavorites(); });
       loadLatest();
     });
   })();
   </script>
 
-  <!-- Dify チャットボット（右下固定のバブル） -->
+  <!-- Dify チャットボット（右下固定） -->
   <script> window.difyChatbotConfig = { token: 'G4x8fpppi7CUJMgV' } </script>
   <script src="https://udify.app/embed.min.js" id="G4x8fpppi7CUJMgV" defer></script>
   <style>
