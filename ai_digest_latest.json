@@ -1,6 +1,12 @@
 {
-  "generated_at": "2025-10-26 11:30 JST",
+  "generated_at": "2025-10-27 11:47 JST",
   "items": [
+    {
+      "title": "Introducing vibe coding in Google AI Studio",
+      "url": "https://blog.google/technology/developers/introducing-vibe-coding-in-google-ai-studio/",
+      "published": "2025-10-27 00:00",
+      "summary": "Vibe Coding in Google AI Studio was developed in Google's AI Studio . Vibe coding was created in the lab using Google's new AI Studio software . The code was developed with the help of Google's Vibe-Coding Studio, which is now being used to code for the first time in the studio . The Vibe Code was created by Google's own AI Studio AI Studio, with the assistance of the company's AI team ."
+    },
     {
       "title": "LeRobot v0.4.0: Super Charging OSS Robotics Learning",
       "url": "https://huggingface.co/blog/lerobot-release-v040",
@@ -54,12 +60,6 @@
       "url": "https://huggingface.co/blog/aisheets-unlock-images",
       "published": "2025-10-21 09:00",
       "summary": "Unlock the power of images with AI Sheets . Unlocking power of the world's largest collection of AI-generated images . Unlock power of image editing with AI-powered software . See more from iReport.com: Share your photos with us at iReport@mailonline.co.uk . Back to the page you came from ."
-    },
-    {
-      "title": "Leveling up your developer experience in Google AI Studio",
-      "url": "https://blog.google/technology/developers/ai-studio-updates-more-control/",
-      "published": "2025-10-19 00:00",
-      "summary": "One Playground in Google AI Studio was created in Google's AI Studio . Playground is a Google Playground for the company's AI studio . Google is working with AI Studio to create a game-based environment for AI Studio's AI labors . Google has been working with the company to develop a new AI lab for the past two years ."
     }
   ]
 }
